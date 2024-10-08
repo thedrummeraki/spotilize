@@ -173,11 +173,11 @@ class SpotifyAuthApp < Sinatra::Base
     set :port, 4567
   end
 
-  def initialize(app = nil, client_id:, client_secret:, state:)
-    super(app)
-    @client_id = client_id
-    @client_secret = client_secret
-    @state = state
+  def self.run!(client_id:, client_secret:, state:)
+    set :client_id, client_id
+    set :client_secret, client_secret
+    set :state, state
+    super()
   end
 
   get '/callback' do
@@ -235,7 +235,7 @@ def auth_command
     puts auth_url
   end
 
-  SpotifyAuthApp.new(client_id: client_id, client_secret: client_secret, state: state).run!
+  SpotifyAuthApp.run!(client_id: client_id, client_secret: client_secret, state: state)
 end
 
 def main
