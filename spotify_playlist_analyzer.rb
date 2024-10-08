@@ -24,6 +24,10 @@ ARGV.clone.options do |opts|
     OPTIONS[:first] = first.to_i.zero? ? 50 : first.to_i
   end
 
+  opts.on('--odd-time-only', 'Only print songs with odd time signatures') do
+    OPTIONS[:odd_time_only] = true
+  end
+
   opts.on('-h', '--help', 'Display this help') do
     puts opts
     exit
@@ -306,7 +310,9 @@ def main
           time_signature = analysis['time_signature']
           bpm = analysis['tempo'].round
 
-          puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
+          if !OPTIONS[:odd_time_only] || time_signature % 2 != 0
+            puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
+          end
         end
       end
 
