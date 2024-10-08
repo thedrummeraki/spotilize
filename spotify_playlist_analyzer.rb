@@ -30,9 +30,17 @@ end
 
 COMMAND = ARGV.shift
 
-def make_api_request(url, headers, _auth_token = nil)
+def make_api_request(url, headers, auth_token = nil)
   loop do
     response = HTTParty.get(url, headers: headers)
+    
+    if response.code == 401 && auth_token
+      puts "Token expired. Refreshing..."
+      new_token = refresh_token(read_refresh_token)
+      headers['Authorization'] = "Bearer #{new_token}"
+      next
+    end
+    
     return response unless response.code == 429
 
     retry_after = response.headers['Retry-After'].to_i
@@ -121,7 +129,7 @@ def fetch_playlist_tracks(playlist_id)
   }
 
   loop do
-    response = make_api_request(url, headers)
+    response = make_api_request(url, headers, auth_token)
     data = JSON.parse(response.body)
 
     if data['error']
