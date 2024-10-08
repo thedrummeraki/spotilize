@@ -20,8 +20,8 @@ ARGV.clone.options do |opts|
     OPTIONS[:client_secret] = secret
   end
 
-  opts.on('--first FIRST', 'First N songs to analyze (for a playlist)') do |first|
-    OPTIONS[:first] = first.to_i.zero? ? 50 : first.to_i
+  opts.on('--first FIRST', 'First N songs to analyze (for a playlist), or "all" for entire playlist') do |first|
+    OPTIONS[:first] = first.downcase == 'all' ? nil : (first.to_i.zero? ? 50 : first.to_i)
   end
 
   opts.on('--odd-time-only', 'Only print songs with odd time signatures') do
@@ -147,7 +147,7 @@ def fetch_playlist_tracks(playlist_id, first_tracks)
     all_tracks.concat(data['items']) if data['items']
 
     break if data['next'].nil?
-    break if all_tracks.size >= first_tracks
+    break if first_tracks && all_tracks.size >= first_tracks
 
     url = data['next']
   end
@@ -280,7 +280,7 @@ def main
     begin
       tracks = nil
       spinner('Loading playlist') do
-        tracks = fetch_playlist_tracks(playlist_id, OPTIONS[:first] || 50)
+        tracks = fetch_playlist_tracks(playlist_id, OPTIONS[:first])
       end
 
       if tracks.empty?
