@@ -82,37 +82,42 @@ def main
 
   playlist_id = ARGV[0]
   auth_token = read_auth_token
-
-  tracks = nil
-  spinner('Loading playlist') do
-    tracks = fetch_playlist_tracks(playlist_id, auth_token)
-  end
   analyzed_songs = read_analyzed_songs
 
-  puts "Analyzing #{tracks.length} tracks..."
-  tracks.each_with_index do |track_item, index|
-    track = track_item['track']
-    name = track['name']
-    artist = track['artists'].first['name']
-    track_id = track['id']
-
-    song_key = "#{name} - #{artist}"
-
-    if analyzed_songs.key?(song_key)
-      analysis = analyzed_songs[song_key]
-    else
-      analysis = analyze_track(track_id, auth_token)
-      analyzed_songs[song_key] = analysis
+  begin
+    tracks = nil
+    spinner('Loading playlist') do
+      tracks = fetch_playlist_tracks(playlist_id, auth_token)
     end
 
-    time_signature = analysis['time_signature']
-    bpm = analysis['tempo'].round
+    puts "Analyzing #{tracks.length} tracks..."
+    tracks.each_with_index do |track_item, index|
+      track = track_item['track']
+      name = track['name']
+      artist = track['artists'].first['name']
+      track_id = track['id']
 
-    puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
+      song_key = "#{name} - #{artist}"
+
+      if analyzed_songs.key?(song_key)
+        analysis = analyzed_songs[song_key]
+      else
+        analysis = analyze_track(track_id, auth_token)
+        analyzed_songs[song_key] = analysis
+      end
+
+      time_signature = analysis['time_signature']
+      bpm = analysis['tempo'].round
+
+      puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
+    end
+
+    puts 'Analysis complete. Results saved to .analyzed.json'
+  rescue => e
+    puts "An error occurred: #{e.message}"
+  ensure
+    write_analyzed_songs(analyzed_songs)
   end
-
-  write_analyzed_songs(analyzed_songs)
-  puts 'Analysis complete. Results saved to .analyzed.json'
 end
 
 main
