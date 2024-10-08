@@ -295,7 +295,7 @@ def main
 
         track_id = track['id']
         artists = track['artists'].map { |t| t['name'] }.join(', ')
-        song_key = "[#{track_id}] #{track['name']} (#{artists})"
+        song_key = "#{track['name']} (#{artists})"
 
         if analyzed_songs.key?(track_id)
           analysis = analyzed_songs[track_id]
@@ -310,8 +310,10 @@ def main
           time_signature = analysis['time_signature']
           bpm = analysis['tempo'].round
 
-          if !OPTIONS[:odd_time_only] || time_signature % 2 != 0
-            puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
+          if !OPTIONS[:odd_time_only] || time_signature.odd?
+            track_url = "https://open.spotify.com/track/#{track_id}"
+            puts "#{index + 1}/#{tracks.length}: [#{hyperlink(track_id,
+                                                              track_url)}] #{song_key} - #{time_signature} - #{bpm}"
           end
         end
       end
@@ -324,6 +326,10 @@ def main
       write_analyzed_songs(analyzed_songs)
     end
   end
+end
+
+def hyperlink(text, url)
+  "\033]8;;#{url}\033\\#{text}\033]8;;\033\\"
 end
 
 main
