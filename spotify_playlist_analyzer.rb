@@ -9,7 +9,12 @@ rescue Errno::ENOENT
 end
 
 def fetch_playlist_tracks(playlist_id, auth_token)
-  url = "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
+  url = if playlist_id == "liked"
+    "https://api.spotify.com/v1/me/tracks"
+  else
+    "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
+  end
+  
   headers = {
     "Authorization" => "Bearer #{auth_token}",
     "Content-Type" => "application/json"
@@ -33,6 +38,7 @@ end
 def main
   if ARGV.empty?
     puts "Usage: ruby spotify_playlist_analyzer.rb <playlist_id>"
+    puts "Use 'liked' as the playlist_id to analyze your liked songs."
     exit 1
   end
 
