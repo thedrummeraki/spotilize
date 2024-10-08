@@ -20,6 +20,10 @@ ARGV.clone.options do |opts|
     OPTIONS[:client_secret] = secret
   end
 
+  opts.on('--first FIRST', 'First N songs to analyze (for a playlist)') do |first|
+    OPTIONS[:first] = first.to_i.zero? ? 50 : first.to_i
+  end
+
   opts.on('-h', '--help', 'Display this help') do
     puts opts
     exit
@@ -113,18 +117,15 @@ def get_valid_token
   end
 end
 
-def fetch_playlist_tracks(playlist_id)
+def fetch_playlist_tracks(playlist_id, first_tracks)
   auth_token = get_valid_token
   all_tracks = []
-  puts("Playlist ID: #{playlist_id}")
   url = if playlist_id.downcase == 'liked'
           'https://api.spotify.com/v1/me/tracks'
         else
           "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
         end
 
-  puts("URL: #{url}")
-  puts("Bearer: #{auth_token}")
   headers = {
     'Authorization' => "Bearer #{auth_token}",
     'Content-Type' => 'application/json'
@@ -142,6 +143,7 @@ def fetch_playlist_tracks(playlist_id)
     all_tracks.concat(data['items']) if data['items']
 
     break if data['next'].nil?
+    break if all_tracks.size >= first_tracks
 
     url = data['next']
   end
@@ -233,8 +235,6 @@ def auth_command
   client_id = OPTIONS[:client_id] || ENV['SPOTIFY_CLIENT_ID']
   client_secret = OPTIONS[:client_secret] || ENV['SPOTIFY_CLIENT_SECRET']
 
-  puts 'Auth'
-
   if client_id.nil? || client_secret.nil?
     puts 'Error: Spotify Client ID and Client Secret must be provided either as CLI parameters (--id and --secret) or as environment variables (SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET).'
     exit 1
@@ -276,7 +276,7 @@ def main
     begin
       tracks = nil
       spinner('Loading playlist') do
-        tracks = fetch_playlist_tracks(playlist_id)
+        tracks = fetch_playlist_tracks(playlist_id, OPTIONS[:first] || 50)
       end
 
       if tracks.empty?
@@ -289,17 +289,15 @@ def main
         track = track_item['track']
         next unless track # Skip any nil tracks
 
-        name = track['name']
-        artist = track['artists'].first['name']
         track_id = track['id']
+        artists = track['artists'].map { |t| t['name'] }.join(', ')
+        song_key = "[#{track_id}] #{track['name']} (#{artists})"
 
-        song_key = "#{name} - #{artist}"
-
-        if analyzed_songs.key?(song_key)
-          analysis = analyzed_songs[song_key]
+        if analyzed_songs.key?(track_id)
+          analysis = analyzed_songs[track_id]
         else
           analysis = analyze_track(track_id)
-          analyzed_songs[song_key] = analysis
+          analyzed_songs[track_id] = analysis
         end
 
         if analysis['error']
@@ -315,6 +313,7 @@ def main
       puts 'Analysis complete. Results saved to .analyzed.json'
     rescue StandardError => e
       puts "An error occurred: #{e.message}"
+      puts e.backtrace
     ensure
       write_analyzed_songs(analyzed_songs)
     end
