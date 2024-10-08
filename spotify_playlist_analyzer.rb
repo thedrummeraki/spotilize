@@ -21,7 +21,11 @@ ARGV.clone.options do |opts|
   end
 
   opts.on('--first FIRST', 'First N songs to analyze (for a playlist), or "all" for entire playlist') do |first|
-    OPTIONS[:first] = first.downcase == 'all' ? nil : (first.to_i.zero? ? 50 : first.to_i)
+    OPTIONS[:first] = if first.downcase == 'all'
+                        nil
+                      else
+                        (first.to_i.zero? ? 50 : first.to_i)
+                      end
   end
 
   opts.on('--odd-time-only', 'Only print songs with odd time signatures') do
@@ -159,8 +163,8 @@ def analyze_track(track_id)
   auth_token = get_valid_token
   url = "https://api.spotify.com/v1/audio-features/#{track_id}"
   headers = {
-    'Authorization' => "Bearer #{auth_token}",
-    'Content-Type' => 'application/json'
+    'authorization' => "Bearer #{auth_token}",
+    'content-type' => 'application/json'
   }
 
   response = make_api_request(url, headers)
@@ -261,12 +265,62 @@ def auth_command
   SpotifyAuthApp.run!(client_id: client_id, client_secret: client_secret, state: state)
 end
 
+def watch_command
+  loop do
+    auth_token = get_valid_token
+    url = 'https://api.spotify.com/v1/me/player/currently-playing'
+    headers = {
+      'authorization' => "Bearer #{auth_token}",
+      'content-type' => 'application/json'
+    }
+    response = make_api_request(url, headers, auth_token)
+    unless response.body
+      print("\rWaiting...")
+      next
+    end
+
+    data = JSON.parse(response.body)
+
+    analyzed_songs = read_analyzed_songs
+
+    track_id = data['item']['id']
+    analysis = if analyzed_songs.key?(track_id)
+                 analyzed_songs[track_id]
+               else
+                 result = analyze_track(track_id)
+                 analyzed_songs[track_id] = result
+                 result
+               end
+
+    top = analysis['time_signature']
+    bottom = top > 5 ? 8 : 4
+
+    signature = "#{top}/#{bottom}"
+
+    bpm = analysis['tempo']
+    key = analysis['key']
+
+    track_url = "https://open.spotify.com/track/#{track_id}"
+
+    print("\r[#{hyperlink(track_id, track_url)}] #{data['item']['name']}: #{signature} (BPM: #{bpm}, Key: #{key})\t")
+
+    sleep(1)
+  rescue Interrupt
+    puts 'Bye'
+    break
+  rescue StandardError => e
+    puts("Unknown error: #{e}")
+  end
+end
+
 def main
   FileUtils.touch('.analyzed.json') unless File.exist?('.analyzed.json')
 
   case COMMAND
   when 'auth'
     auth_command
+  when 'watch'
+    watch_command
   when 'analyze'
     if ARGV.empty?
       puts 'Error: Please provide a playlist ID after the analyze command.'
@@ -302,6 +356,7 @@ def main
         else
           analysis = analyze_track(track_id)
           analyzed_songs[track_id] = analysis
+          sleep(0.5)
         end
 
         if analysis['error']
