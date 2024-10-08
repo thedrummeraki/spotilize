@@ -10,6 +10,7 @@ rescue Errno::ENOENT
 end
 
 def fetch_playlist_tracks(playlist_id, auth_token)
+  all_tracks = []
   url = if playlist_id == "liked"
     "https://api.spotify.com/v1/me/tracks"
   else
@@ -21,8 +22,16 @@ def fetch_playlist_tracks(playlist_id, auth_token)
     "Content-Type" => "application/json"
   }
 
-  response = HTTParty.get(url, headers: headers)
-  JSON.parse(response.body)["items"]
+  loop do
+    response = HTTParty.get(url, headers: headers)
+    data = JSON.parse(response.body)
+    all_tracks.concat(data["items"])
+
+    break if data["next"].nil?
+    url = data["next"]
+  end
+
+  all_tracks
 end
 
 def analyze_track(track_id, auth_token)
