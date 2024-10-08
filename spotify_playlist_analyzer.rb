@@ -114,6 +114,7 @@ def fetch_playlist_tracks(playlist_id)
           "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
         end
 
+  puts("URL: #{auth_token}")
   headers = {
     'Authorization' => "Bearer #{auth_token}",
     'Content-Type' => 'application/json'
@@ -122,12 +123,12 @@ def fetch_playlist_tracks(playlist_id)
   loop do
     response = make_api_request(url, headers)
     data = JSON.parse(response.body)
-    
+
     if data['error']
       puts "Error: #{data['error']['message']}"
       return []
     end
-    
+
     all_tracks.concat(data['items']) if data['items']
 
     break if data['next'].nil?
@@ -273,7 +274,7 @@ def main
       end
 
       if tracks.empty?
-        puts "No tracks found or error occurred. Please check the playlist ID and try again."
+        puts 'No tracks found or error occurred. Please check the playlist ID and try again.'
         return
       end
 
