@@ -5,30 +5,31 @@ require 'fileutils'
 def read_auth_token
   File.read('.auth').strip
 rescue Errno::ENOENT
-  puts "Error: .auth file not found. Please create it with your Spotify bearer token."
+  puts 'Error: .auth file not found. Please create it with your Spotify bearer token.'
   exit 1
 end
 
 def fetch_playlist_tracks(playlist_id, auth_token)
   all_tracks = []
-  url = if playlist_id == "liked"
-    "https://api.spotify.com/v1/me/tracks"
-  else
-    "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
-  end
-  
+  url = if playlist_id == 'liked'
+          'https://api.spotify.com/v1/me/tracks'
+        else
+          "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
+        end
+
   headers = {
-    "Authorization" => "Bearer #{auth_token}",
-    "Content-Type" => "application/json"
+    'Authorization' => "Bearer #{auth_token}",
+    'Content-Type' => 'application/json'
   }
 
   loop do
     response = HTTParty.get(url, headers: headers)
     data = JSON.parse(response.body)
-    all_tracks.concat(data["items"])
+    all_tracks.concat(data['items']) if data['items']
 
-    break if data["next"].nil?
-    url = data["next"]
+    break if data['next'].nil?
+
+    url = data['next']
   end
 
   all_tracks
@@ -37,8 +38,8 @@ end
 def analyze_track(track_id, auth_token)
   url = "https://api.spotify.com/v1/audio-features/#{track_id}"
   headers = {
-    "Authorization" => "Bearer #{auth_token}",
-    "Content-Type" => "application/json"
+    'Authorization' => "Bearer #{auth_token}",
+    'Content-Type' => 'application/json'
   }
 
   response = HTTParty.get(url, headers: headers)
@@ -74,7 +75,7 @@ end
 def main
   FileUtils.touch('.analyzed.json') unless File.exist?('.analyzed.json')
   if ARGV.empty?
-    puts "Usage: ruby spotify_playlist_analyzer.rb <playlist_id>"
+    puts 'Usage: ruby spotify_playlist_analyzer.rb <playlist_id>'
     puts "Use 'liked' as the playlist_id to analyze your liked songs."
     exit 1
   end
@@ -83,17 +84,17 @@ def main
   auth_token = read_auth_token
 
   tracks = nil
-  spinner("Loading playlist") do
+  spinner('Loading playlist') do
     tracks = fetch_playlist_tracks(playlist_id, auth_token)
   end
   analyzed_songs = read_analyzed_songs
 
   puts "Analyzing #{tracks.length} tracks..."
   tracks.each_with_index do |track_item, index|
-    track = track_item["track"]
-    name = track["name"]
-    artist = track["artists"].first["name"]
-    track_id = track["id"]
+    track = track_item['track']
+    name = track['name']
+    artist = track['artists'].first['name']
+    track_id = track['id']
 
     song_key = "#{name} - #{artist}"
 
@@ -104,14 +105,14 @@ def main
       analyzed_songs[song_key] = analysis
     end
 
-    time_signature = analysis["time_signature"]
-    bpm = analysis["tempo"].round
+    time_signature = analysis['time_signature']
+    bpm = analysis['tempo'].round
 
     puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
   end
 
   write_analyzed_songs(analyzed_songs)
-  puts "Analysis complete. Results saved to .analyzed.json"
+  puts 'Analysis complete. Results saved to .analyzed.json'
 end
 
 main
