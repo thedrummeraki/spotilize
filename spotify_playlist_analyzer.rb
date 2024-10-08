@@ -1,5 +1,5 @@
-require 'httparty'
-require 'json'
+require 'bundler/setup'
+Bundler.require(:default)
 
 def read_auth_token
   File.read('.auth').strip
