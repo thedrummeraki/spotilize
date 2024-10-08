@@ -3,6 +3,20 @@ Bundler.require(:default)
 require 'fileutils'
 require 'time'
 require 'base64'
+require 'optparse'
+
+OPTIONS = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: ruby spotify_playlist_analyzer.rb [options] <playlist_id>"
+
+  opts.on("--id CLIENT_ID", "Spotify Client ID") do |id|
+    OPTIONS[:client_id] = id
+  end
+
+  opts.on("--secret CLIENT_SECRET", "Spotify Client Secret") do |secret|
+    OPTIONS[:client_secret] = secret
+  end
+end.parse!
 
 def make_api_request(url, headers, auth_token = nil)
   loop do
@@ -40,11 +54,11 @@ end
 
 def refresh_token(refresh_token)
   url = 'https://accounts.spotify.com/api/token'
-  client_id = ENV['SPOTIFY_CLIENT_ID']
-  client_secret = ENV['SPOTIFY_CLIENT_SECRET']
+  client_id = OPTIONS[:client_id] || ENV['SPOTIFY_CLIENT_ID']
+  client_secret = OPTIONS[:client_secret] || ENV['SPOTIFY_CLIENT_SECRET']
 
   if client_id.nil? || client_secret.nil?
-    puts 'Error: SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables must be set.'
+    puts 'Error: Spotify Client ID and Client Secret must be provided either as CLI parameters (--id and --secret) or as environment variables (SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET).'
     exit 1
   end
 
@@ -149,8 +163,11 @@ end
 def main
   FileUtils.touch('.analyzed.json') unless File.exist?('.analyzed.json')
   if ARGV.empty?
-    puts 'Usage: ruby spotify_playlist_analyzer.rb <playlist_id>'
+    puts 'Usage: ruby spotify_playlist_analyzer.rb [options] <playlist_id>'
     puts "Use 'liked' as the playlist_id to analyze your liked songs."
+    puts "Options:"
+    puts "  --id CLIENT_ID        Spotify Client ID"
+    puts "  --secret CLIENT_SECRET Spotify Client Secret"
     exit 1
   end
 
