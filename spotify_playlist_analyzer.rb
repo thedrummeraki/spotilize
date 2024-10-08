@@ -1,5 +1,6 @@
 require 'bundler/setup'
 Bundler.require(:default)
+require 'fileutils'
 
 def read_auth_token
   File.read('.auth').strip
@@ -35,7 +36,18 @@ def analyze_track(track_id, auth_token)
   JSON.parse(response.body)
 end
 
+def read_analyzed_songs
+  JSON.parse(File.read('.analyzed.json'))
+rescue Errno::ENOENT, JSON::ParserError
+  {}
+end
+
+def write_analyzed_songs(analyzed_songs)
+  File.write('.analyzed.json', JSON.pretty_generate(analyzed_songs))
+end
+
 def main
+  FileUtils.touch('.analyzed.json') unless File.exist?('.analyzed.json')
   if ARGV.empty?
     puts "Usage: ruby spotify_playlist_analyzer.rb <playlist_id>"
     puts "Use 'liked' as the playlist_id to analyze your liked songs."
@@ -46,6 +58,7 @@ def main
   auth_token = read_auth_token
 
   tracks = fetch_playlist_tracks(playlist_id, auth_token)
+  analyzed_songs = read_analyzed_songs
 
   tracks.each do |track_item|
     track = track_item["track"]
@@ -53,12 +66,22 @@ def main
     artist = track["artists"].first["name"]
     track_id = track["id"]
 
-    analysis = analyze_track(track_id, auth_token)
+    song_key = "#{name} - #{artist}"
+
+    if analyzed_songs.key?(song_key)
+      analysis = analyzed_songs[song_key]
+    else
+      analysis = analyze_track(track_id, auth_token)
+      analyzed_songs[song_key] = analysis
+    end
+
     time_signature = analysis["time_signature"]
     bpm = analysis["tempo"].round
 
-    puts "#{name} - #{artist} - #{time_signature} - #{bpm}"
+    puts "#{song_key} - #{time_signature} - #{bpm}"
   end
+
+  write_analyzed_songs(analyzed_songs)
 end
 
 main
