@@ -55,6 +55,22 @@ def write_analyzed_songs(analyzed_songs)
   File.write('.analyzed.json', JSON.pretty_generate(analyzed_songs))
 end
 
+def spinner(message)
+  spinner = ['|', '/', '-', '\\']
+  i = 0
+  thread = Thread.new do
+    while true
+      print "\r#{message} #{spinner[i]}"
+      i = (i + 1) % 4
+      sleep 0.1
+    end
+  end
+  yield
+ensure
+  thread.kill
+  print "\r#{' ' * (message.length + 2)}\r"
+end
+
 def main
   FileUtils.touch('.analyzed.json') unless File.exist?('.analyzed.json')
   if ARGV.empty?
@@ -66,10 +82,14 @@ def main
   playlist_id = ARGV[0]
   auth_token = read_auth_token
 
-  tracks = fetch_playlist_tracks(playlist_id, auth_token)
+  tracks = nil
+  spinner("Loading playlist") do
+    tracks = fetch_playlist_tracks(playlist_id, auth_token)
+  end
   analyzed_songs = read_analyzed_songs
 
-  tracks.each do |track_item|
+  puts "Analyzing #{tracks.length} tracks..."
+  tracks.each_with_index do |track_item, index|
     track = track_item["track"]
     name = track["name"]
     artist = track["artists"].first["name"]
@@ -87,10 +107,11 @@ def main
     time_signature = analysis["time_signature"]
     bpm = analysis["tempo"].round
 
-    puts "#{song_key} - #{time_signature} - #{bpm}"
+    puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
   end
 
   write_analyzed_songs(analyzed_songs)
+  puts "Analysis complete. Results saved to .analyzed.json"
 end
 
 main
