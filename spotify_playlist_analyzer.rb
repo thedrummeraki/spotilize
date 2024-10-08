@@ -1,6 +1,24 @@
 require 'bundler/setup'
 Bundler.require(:default)
 require 'fileutils'
+require 'time'
+
+def make_api_request(url, headers)
+  loop do
+    response = HTTParty.get(url, headers: headers)
+    if response.code == 429
+      retry_after = response.headers['Retry-After'].to_i
+      puts "Rate limit exceeded. Retrying after #{retry_after} seconds."
+      retry_after.downto(1) do |i|
+        print "\rTime remaining: #{i} seconds"
+        sleep 1
+      end
+      puts "\nRetrying request..."
+    else
+      return response
+    end
+  end
+end
 
 def read_auth_token
   File.read('.auth').strip
@@ -23,7 +41,7 @@ def fetch_playlist_tracks(playlist_id, auth_token)
   }
 
   loop do
-    response = HTTParty.get(url, headers: headers)
+    response = make_api_request(url, headers)
     data = JSON.parse(response.body)
     all_tracks.concat(data['items']) if data['items']
 
@@ -42,7 +60,7 @@ def analyze_track(track_id, auth_token)
     'Content-Type' => 'application/json'
   }
 
-  response = HTTParty.get(url, headers: headers)
+  response = make_api_request(url, headers)
   JSON.parse(response.body)
 end
 
