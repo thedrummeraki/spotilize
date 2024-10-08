@@ -1,5 +1,3 @@
-require 'bundler/setup'
-Bundler.require(:default)
 require 'fileutils'
 require 'time'
 require 'base64'
@@ -10,33 +8,31 @@ require 'launchy'
 
 OPTIONS = {}
 OptionParser.new do |opts|
-  opts.banner = "Usage: ruby spotify_playlist_analyzer.rb [options] <command> [<args>]"
+  opts.banner = 'Usage: ruby spotify_playlist_analyzer.rb [options] <command> [<args>]'
 
-  opts.on("--id CLIENT_ID", "Spotify Client ID") do |id|
+  opts.on('--id CLIENT_ID', 'Spotify Client ID') do |id|
     OPTIONS[:client_id] = id
   end
 
-  opts.on("--secret CLIENT_SECRET", "Spotify Client Secret") do |secret|
+  opts.on('--secret CLIENT_SECRET', 'Spotify Client Secret') do |secret|
     OPTIONS[:client_secret] = secret
   end
 end.parse!
 
 COMMAND = ARGV.shift
 
-def make_api_request(url, headers, auth_token = nil)
+def make_api_request(url, headers, _auth_token = nil)
   loop do
     response = HTTParty.get(url, headers: headers)
-    if response.code == 429
-      retry_after = response.headers['Retry-After'].to_i
-      puts "Rate limit exceeded. Retrying after #{retry_after} seconds."
-      retry_after.downto(1) do |i|
-        print "\rTime remaining: #{i} seconds"
-        sleep 1
-      end
-      puts "\nRetrying request..."
-    else
-      return response
+    return response unless response.code == 429
+
+    retry_after = response.headers['Retry-After'].to_i
+    puts "Rate limit exceeded. Retrying after #{retry_after} seconds."
+    retry_after.downto(1) do |i|
+      print "\rTime remaining: #{i} seconds"
+      sleep 1
     end
+    puts "\nRetrying request..."
   end
 end
 
@@ -177,14 +173,14 @@ def auth_command
   state = SecureRandom.hex(16)
   auth_url = "https://accounts.spotify.com/authorize?client_id=#{client_id}&response_type=code&redirect_uri=http://localhost:4567/callback&scope=user-library-read%20playlist-read-private&state=#{state}"
 
-  puts "Do you want to open your browser to authorize this script to use your Spotify data?"
-  print "> Yes > No (default): "
+  puts 'Do you want to open your browser to authorize this script to use your Spotify data?'
+  print '> Yes > No (default): '
   answer = gets.chomp.downcase
 
   if answer == 'yes'
     Launchy.open(auth_url)
   else
-    puts "Please open the following URL in your browser to authorize the application:"
+    puts 'Please open the following URL in your browser to authorize the application:'
     puts auth_url
   end
 
@@ -196,28 +192,27 @@ def auth_command
       code = params[:code]
       token_url = 'https://accounts.spotify.com/api/token'
       auth_header = Base64.strict_encode64("#{client_id}:#{client_secret}")
-      
-      response = HTTParty.post(token_url, 
-        headers: { 
-          'Authorization' => "Basic #{auth_header}",
-          'Content-Type' => 'application/x-www-form-urlencoded'
-        },
-        body: {
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: 'http://localhost:4567/callback'
-        }
-      )
+
+      response = HTTParty.post(token_url,
+                               headers: {
+                                 'Authorization' => "Basic #{auth_header}",
+                                 'Content-Type' => 'application/x-www-form-urlencoded'
+                               },
+                               body: {
+                                 grant_type: 'authorization_code',
+                                 code: code,
+                                 redirect_uri: 'http://localhost:4567/callback'
+                               })
 
       if response.code == 200
         data = JSON.parse(response.body)
         File.write('.auth', data['refresh_token'])
-        "Authorization successful! You can now close this window and return to the command line."
+        'Authorization successful! You can now close this window and return to the command line.'
       else
-        "Authorization failed. Please try again."
+        'Authorization failed. Please try again.'
       end
     else
-      "Invalid state parameter. Please try again."
+      'Invalid state parameter. Please try again.'
     end
   end
 
@@ -226,19 +221,19 @@ end
 
 def main
   FileUtils.touch('.analyzed.json') unless File.exist?('.analyzed.json')
-  
+
   case COMMAND
   when 'auth'
     auth_command
   when nil
     puts 'Usage: ruby spotify_playlist_analyzer.rb [options] <command> [<args>]'
-    puts "Commands:"
-    puts "  auth                  Authorize the application"
-    puts "  analyze <playlist_id> Analyze a playlist"
+    puts 'Commands:'
+    puts '  auth                  Authorize the application'
+    puts '  analyze <playlist_id> Analyze a playlist'
     puts "    Use 'liked' as the playlist_id to analyze your liked songs."
-    puts "Options:"
-    puts "  --id CLIENT_ID        Spotify Client ID"
-    puts "  --secret CLIENT_SECRET Spotify Client Secret"
+    puts 'Options:'
+    puts '  --id CLIENT_ID        Spotify Client ID'
+    puts '  --secret CLIENT_SECRET Spotify Client Secret'
     exit 1
   else
     playlist_id = COMMAND
@@ -273,7 +268,7 @@ def main
       end
 
       puts 'Analysis complete. Results saved to .analyzed.json'
-    rescue => e
+    rescue StandardError => e
       puts "An error occurred: #{e.message}"
     ensure
       write_analyzed_songs(analyzed_songs)
