@@ -33,14 +33,14 @@ COMMAND = ARGV.shift
 def make_api_request(url, headers, auth_token = nil)
   loop do
     response = HTTParty.get(url, headers: headers)
-    
+
     if response.code == 401 && auth_token
-      puts "Token expired. Refreshing..."
+      puts 'Token expired. Refreshing...'
       new_token = refresh_token(read_refresh_token)
       headers['Authorization'] = "Bearer #{new_token}"
       next
     end
-    
+
     return response unless response.code == 429
 
     retry_after = response.headers['Retry-After'].to_i
@@ -116,13 +116,15 @@ end
 def fetch_playlist_tracks(playlist_id)
   auth_token = get_valid_token
   all_tracks = []
+  puts("Playlist ID: #{playlist_id}")
   url = if playlist_id.downcase == 'liked'
           'https://api.spotify.com/v1/me/tracks'
         else
           "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
         end
 
-  puts("URL: #{auth_token}")
+  puts("URL: #{url}")
+  puts("Bearer: #{auth_token}")
   headers = {
     'Authorization' => "Bearer #{auth_token}",
     'Content-Type' => 'application/json'
