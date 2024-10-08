@@ -122,6 +122,7 @@ def fetch_playlist_tracks(playlist_id)
   loop do
     response = make_api_request(url, headers)
     data = JSON.parse(response.body)
+    puts("Data: #{data}")
     all_tracks.concat(data['items']) if data['items']
 
     break if data['next'].nil?
@@ -189,15 +190,15 @@ class SpotifyAuthApp < Sinatra::Base
       auth_header = Base64.strict_encode64("#{settings.client_id}:#{settings.client_secret}")
 
       response = ::HTTParty.post(token_url,
-                               headers: {
-                                 'Authorization' => "Basic #{auth_header}",
-                                 'Content-Type' => 'application/x-www-form-urlencoded'
-                               },
-                               body: {
-                                 grant_type: 'authorization_code',
-                                 code: code,
-                                 redirect_uri: 'http://localhost:4567/callback'
-                               })
+                                 headers: {
+                                   'Authorization' => "Basic #{auth_header}",
+                                   'Content-Type' => 'application/x-www-form-urlencoded'
+                                 },
+                                 body: {
+                                   grant_type: 'authorization_code',
+                                   code: code,
+                                   redirect_uri: 'http://localhost:4567/callback'
+                                 })
 
       if response.code == 200
         data = JSON.parse(response.body)
