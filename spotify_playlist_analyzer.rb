@@ -5,6 +5,8 @@ require 'optparse'
 require 'sinatra/base'
 require 'securerandom'
 require 'launchy'
+require 'httparty'
+require 'json'
 
 OPTIONS = {}
 ARGV.clone.options do |opts|
@@ -186,7 +188,7 @@ class SpotifyAuthApp < Sinatra::Base
       token_url = 'https://accounts.spotify.com/api/token'
       auth_header = Base64.strict_encode64("#{settings.client_id}:#{settings.client_secret}")
 
-      response = HTTParty.post(token_url,
+      response = ::HTTParty.post(token_url,
                                headers: {
                                  'Authorization' => "Basic #{auth_header}",
                                  'Content-Type' => 'application/x-www-form-urlencoded'
