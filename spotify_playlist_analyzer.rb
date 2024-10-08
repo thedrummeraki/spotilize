@@ -263,18 +263,14 @@ def main
   case COMMAND
   when 'auth'
     auth_command
-  when nil
-    puts 'Usage: ruby spotify_playlist_analyzer.rb [options] <command> [<args>]'
-    puts 'Commands:'
-    puts '  auth                  Authorize the application'
-    puts '  analyze <playlist_id> Analyze a playlist'
-    puts "    Use 'liked' as the playlist_id to analyze your liked songs."
-    puts 'Options:'
-    puts '  --id CLIENT_ID        Spotify Client ID'
-    puts '  --secret CLIENT_SECRET Spotify Client Secret'
-    exit 1
-  else
-    playlist_id = COMMAND
+  when 'analyze'
+    if ARGV.empty?
+      puts 'Error: Please provide a playlist ID after the analyze command.'
+      puts 'Usage: ruby spotify_playlist_analyzer.rb [options] analyze <playlist_id>'
+      puts "Use 'liked' as the playlist_id to analyze your liked songs."
+      exit 1
+    end
+    playlist_id = ARGV.shift
     analyzed_songs = read_analyzed_songs
 
     begin
