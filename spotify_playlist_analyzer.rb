@@ -181,10 +181,10 @@ class SpotifyAuthApp < Sinatra::Base
   end
 
   get '/callback' do
-    if params[:state] == @state
+    if params[:state] == settings.state
       code = params[:code]
       token_url = 'https://accounts.spotify.com/api/token'
-      auth_header = Base64.strict_encode64("#{@client_id}:#{@client_secret}")
+      auth_header = Base64.strict_encode64("#{settings.client_id}:#{settings.client_secret}")
 
       response = HTTParty.post(token_url,
                                headers: {
