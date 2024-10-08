@@ -214,6 +214,8 @@ def auth_command
   client_id = OPTIONS[:client_id] || ENV['SPOTIFY_CLIENT_ID']
   client_secret = OPTIONS[:client_secret] || ENV['SPOTIFY_CLIENT_SECRET']
 
+  puts 'Auth'
+
   if client_id.nil? || client_secret.nil?
     puts 'Error: Spotify Client ID and Client Secret must be provided either as CLI parameters (--id and --secret) or as environment variables (SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET).'
     exit 1
