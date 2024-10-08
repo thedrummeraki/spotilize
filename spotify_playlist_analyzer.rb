@@ -108,7 +108,7 @@ end
 def fetch_playlist_tracks(playlist_id)
   auth_token = get_valid_token
   all_tracks = []
-  url = if playlist_id == 'liked'
+  url = if playlist_id.downcase == 'liked'
           'https://api.spotify.com/v1/me/tracks'
         else
           "https://api.spotify.com/v1/playlists/#{playlist_id}/tracks"
@@ -122,7 +122,12 @@ def fetch_playlist_tracks(playlist_id)
   loop do
     response = make_api_request(url, headers)
     data = JSON.parse(response.body)
-    puts("Data: #{data}")
+    
+    if data['error']
+      puts "Error: #{data['error']['message']}"
+      return []
+    end
+    
     all_tracks.concat(data['items']) if data['items']
 
     break if data['next'].nil?
@@ -267,9 +272,16 @@ def main
         tracks = fetch_playlist_tracks(playlist_id)
       end
 
+      if tracks.empty?
+        puts "No tracks found or error occurred. Please check the playlist ID and try again."
+        return
+      end
+
       puts "Analyzing #{tracks.length} tracks..."
       tracks.each_with_index do |track_item, index|
         track = track_item['track']
+        next unless track # Skip any nil tracks
+
         name = track['name']
         artist = track['artists'].first['name']
         track_id = track['id']
@@ -283,10 +295,14 @@ def main
           analyzed_songs[song_key] = analysis
         end
 
-        time_signature = analysis['time_signature']
-        bpm = analysis['tempo'].round
+        if analysis['error']
+          puts "#{index + 1}/#{tracks.length}: Error analyzing #{song_key}: #{analysis['error']['message']}"
+        else
+          time_signature = analysis['time_signature']
+          bpm = analysis['tempo'].round
 
-        puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
+          puts "#{index + 1}/#{tracks.length}: #{song_key} - #{time_signature} - #{bpm}"
+        end
       end
 
       puts 'Analysis complete. Results saved to .analyzed.json'
