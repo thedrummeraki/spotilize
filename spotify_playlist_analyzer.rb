@@ -2,12 +2,12 @@ require 'fileutils'
 require 'time'
 require 'base64'
 require 'optparse'
-require 'sinatra'
+require 'sinatra/base'
 require 'securerandom'
 require 'launchy'
 
 OPTIONS = {}
-OptionParser.new do |opts|
+ARGV.clone.options do |opts|
   opts.banner = 'Usage: ruby spotify_playlist_analyzer.rb [options] <command> [<args>]'
 
   opts.on('--id CLIENT_ID', 'Spotify Client ID') do |id|
@@ -17,7 +17,14 @@ OptionParser.new do |opts|
   opts.on('--secret CLIENT_SECRET', 'Spotify Client Secret') do |secret|
     OPTIONS[:client_secret] = secret
   end
-end.parse!
+
+  opts.on('-h', '--help', 'Display this help') do
+    puts opts
+    exit
+  end
+
+  opts.parse!
+end
 
 COMMAND = ARGV.shift
 
@@ -184,39 +191,42 @@ def auth_command
     puts auth_url
   end
 
-  server = Sinatra::Application
-  server.set :port, 4567
+  class SpotifyAuthApp < Sinatra::Base
+    configure do
+      set :port, 4567
+    end
 
-  server.get '/callback' do
-    if params[:state] == state
-      code = params[:code]
-      token_url = 'https://accounts.spotify.com/api/token'
-      auth_header = Base64.strict_encode64("#{client_id}:#{client_secret}")
+    get '/callback' do
+      if params[:state] == state
+        code = params[:code]
+        token_url = 'https://accounts.spotify.com/api/token'
+        auth_header = Base64.strict_encode64("#{client_id}:#{client_secret}")
 
-      response = HTTParty.post(token_url,
-                               headers: {
-                                 'Authorization' => "Basic #{auth_header}",
-                                 'Content-Type' => 'application/x-www-form-urlencoded'
-                               },
-                               body: {
-                                 grant_type: 'authorization_code',
-                                 code: code,
-                                 redirect_uri: 'http://localhost:4567/callback'
-                               })
+        response = HTTParty.post(token_url,
+                                 headers: {
+                                   'Authorization' => "Basic #{auth_header}",
+                                   'Content-Type' => 'application/x-www-form-urlencoded'
+                                 },
+                                 body: {
+                                   grant_type: 'authorization_code',
+                                   code: code,
+                                   redirect_uri: 'http://localhost:4567/callback'
+                                 })
 
-      if response.code == 200
-        data = JSON.parse(response.body)
-        File.write('.auth', data['refresh_token'])
-        'Authorization successful! You can now close this window and return to the command line.'
+        if response.code == 200
+          data = JSON.parse(response.body)
+          File.write('.auth', data['refresh_token'])
+          'Authorization successful! You can now close this window and return to the command line.'
+        else
+          'Authorization failed. Please try again.'
+        end
       else
-        'Authorization failed. Please try again.'
+        'Invalid state parameter. Please try again.'
       end
-    else
-      'Invalid state parameter. Please try again.'
     end
   end
 
-  server.run!
+  SpotifyAuthApp.run!
 end
 
 def main
