@@ -43,6 +43,8 @@ end
 COMMAND = ARGV.shift
 
 def make_api_request(url, headers, auth_token = nil)
+  backoff_values = 1.upto(11).map { |x| 2**x }.to_enum
+
   loop do
     response = HTTParty.get(url, headers: headers)
 
@@ -56,12 +58,17 @@ def make_api_request(url, headers, auth_token = nil)
     return response unless response.code == 429
 
     retry_after = response.headers['Retry-After'].to_i
+    retry_after = retry_after.zero? ? backoff_values.next : retry_after
+
     puts "Rate limit exceeded. Retrying after #{retry_after} seconds."
     retry_after.downto(1) do |i|
       print "\rTime remaining: #{i} seconds"
       sleep 1
     end
     puts "\nRetrying request..."
+  rescue StopIteration
+    puts 'Backoff failed. Stopping...'
+    exit 1
   end
 end
 
