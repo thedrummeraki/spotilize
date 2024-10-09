@@ -73,7 +73,8 @@ def make_api_request(url, headers, auth_token = nil)
 end
 
 def read_refresh_token
-  File.read('.auth').strip
+  data = File.read('.auth').strip
+  JSON.parse(data)
 rescue Errno::ENOENT
   puts 'Error: .auth file not found. Please create it with your Spotify refresh token.'
   exit 1
@@ -89,13 +90,14 @@ def write_bearer_token(token)
   File.write('.token', token)
 end
 
-def refresh_token(refresh_token)
+def refresh_token(token_info)
   url = 'https://accounts.spotify.com/api/token'
-  client_id = OPTIONS[:client_id] || ENV['SPOTIFY_CLIENT_ID']
-  client_secret = OPTIONS[:client_secret] || ENV['SPOTIFY_CLIENT_SECRET']
+  client_id = token_info['client_id']
+  client_secret = token_info['client_secret']
+  refresh_token = token_info['refresh_token']
 
   if client_id.nil? || client_secret.nil?
-    puts 'Error: Spotify Client ID and Client Secret must be provided either as CLI parameters (--id and --secret) or as environment variables (SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET).'
+    puts 'Error: Spotify Client ID and Client Secret must be provided from the token info. Rerun the `auth` command to re-authenticate the CLI.'
     exit 1
   end
 
@@ -122,11 +124,11 @@ def refresh_token(refresh_token)
 end
 
 def get_valid_token
-  refresh_token = read_refresh_token
+  token_info = read_refresh_token
   bearer_token = read_bearer_token
 
   if bearer_token.nil?
-    refresh_token(refresh_token)
+    refresh_token(token_info)
   else
     bearer_token
   end
@@ -235,7 +237,12 @@ class SpotifyAuthApp < Sinatra::Base
 
       if response.code == 200
         data = JSON.parse(response.body)
-        File.write('.auth', data['refresh_token'])
+        token_info = {
+          'refresh_token': data['refresh_token'],
+          'client_id': settings.client_id,
+          'client_secret': settings.client_secret
+        }
+        File.write('.auth', JSON.dump(token_info))
         'Authorization successful! You can now close this window and return to the command line.'
       else
         'Authorization failed. Please try again.'
@@ -291,13 +298,12 @@ def watch_command
     analyzed_songs = read_analyzed_songs
 
     track_id = data['item']['id']
-    analysis = if analyzed_songs.key?(track_id)
-                 analyzed_songs[track_id]
-               else
-                 result = analyze_track(track_id)
-                 analyzed_songs[track_id] = result
-                 result
-               end
+    if analyzed_songs.key?(track_id)
+      analysis = analyzed_songs[track_id]
+    else
+      analysis = analyze_track(track_id)
+      analyzed_songs[track_id] = analysis
+    end
 
     top = analysis['time_signature']
     bottom = top > 5 ? 8 : 4
@@ -311,6 +317,7 @@ def watch_command
 
     print("\r[#{hyperlink(track_id, track_url)}] #{data['item']['name']}: #{signature} (BPM: #{bpm}, Key: #{key})\t")
 
+    write_analyzed_songs(analyzed_songs)
     sleep(1)
   rescue Interrupt
     puts 'Bye'
